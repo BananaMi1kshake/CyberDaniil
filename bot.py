@@ -2,60 +2,58 @@ import logging
 import random
 import os
 import asyncio
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Response
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
-# --- CONFIGURATION ---
-# The bot token is now loaded from an environment variable for security.
-# You will set this in the Render dashboard.
+# --- CONFIGURATION (No changes) ---
+# Environment variables are still used for the token.
 
-# --- WORD LISTS ---
+# --- WORD LISTS (Updated) ---
 CURSE_WORDS = {
     "fuck", "shit", "bitch", "cunt", "asshole", "damn", "motherfucker", "dick",
     "блять", "сука", "хуй", "пизда", "ебать", "ебал", "заебал", "мудак", "пидорас", "гандон"
 }
 GREET_NAMES = {"daniil", "dan", "даниил", "даня", "денчик", "denchik", "den4ik"}
-# Changed 'ASAD' to 'DANIIL'
 DANIIL_CURSE_RESPONSES = [
     "Пошел нахуй",
     "Че за хуйня",
     "И че?",
     "Гандон"
 ]
-HOW_ARE_YOU_TRIGGERS = {"how are you", "whats up", "what's up", "как дела", "че там", "васап", "васап?", "че делаешь", "че делаешь?", "че делаете", "че делаете?", "как даня", "как денчик?"}
+HOW_ARE_YOU_TRIGGERS = {"how are you", "whats up", "what's up", "как дела", "че там", "васап", "васап?", "че делаешь", "че делаешь?", "че делаете", "че делаете?"}
 HOW_ARE_YOU_RESPONSES = [
     "норм", "пойдет", "бля репортс упал", "да так, собираюсь в видринк", "жду бонусы",
-    "я заебался", "по домам?", "хочу домой", "го в доту", "ася мне нужна помощь"
+    "я заебался", "по домам?", "хочу домой", "го в доту", "даня мне нужна помощь"
 ]
 KUDA_TRIGGERS = {"куда"}
 GDE_TRIGGERS = {"где", "where"}
-# Removed MUSE_TRIGGERS
+# MUSE_TRIGGERS list has been removed.
 THINK_TRIGGERS = {"че думаете", "че думаешь", "че думаете?", "че думаешь?", "да?", "нет?", "давайте", "давайте?", "надо", "го?", "гоу?", "what do you think", "what do you think?", "think", "yes?", "no?", "lets", "opinion", "should"}
 THINK_RESPONSES = [
     "да", "нет", "не знаю", "наверное", "хз", "очень круто", "мне нравится", "я за", "че бля"
 ]
 
-# --- PRIORITY SYSTEM SETUP ---
+# --- PRIORITY SYSTEM SETUP (Updated) ---
 PRIORITY_CHECKS = [
-    # Updated check_type and response variable
     {'priority': 1, 'response': DANIIL_CURSE_RESPONSES, 'check_type': 'daniil_curse', 'response_type': 'random'},
-    {'priority': 2, 'triggers': GREET_NAMES, 'response': "Салам", 'check_type': 'intersection', 'response_type': 'static'},
+    {'priority': 2, 'triggers': GREET_NAMES, 'response': "Привет", 'check_type': 'intersection', 'response_type': 'static'},
     {'priority': 3, 'check_type': 'or_question'},
     {'priority': 4, 'triggers': HOW_ARE_YOU_TRIGGERS, 'response': HOW_ARE_YOU_RESPONSES, 'check_type': 'contains', 'response_type': 'random'},
     {'priority': 5, 'triggers': KUDA_TRIGGERS, 'response': "Домой", 'check_type': 'contains', 'response_type': 'static'},
     {'priority': 6, 'triggers': GDE_TRIGGERS, 'response': "В Караганде", 'check_type': 'contains', 'response_type': 'static'},
-    # Removed priority 7 (MUSE_TRIGGERS)
+    # Priority check for Muse has been removed.
     {'priority': 8, 'triggers': THINK_TRIGGERS, 'response': THINK_RESPONSES, 'check_type': 'contains', 'response_type': 'random'},
 ]
 PRIORITY_CHECKS.sort(key=lambda x: x['priority'])
 
-# --- BOT LOGIC ---
+# --- BOT LOGIC (Updated) ---
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text("Салам! Я Даниил бот ")
+    await update.message.reply_text("Привет! Я Даниил бот ")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.message or not update.message.text:
@@ -65,7 +63,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     for check in PRIORITY_CHECKS:
         triggered = False
         response_text = None
-        # Updated check_type from 'asad_curse' to 'daniil_curse'
         if check['check_type'] == 'daniil_curse':
             if GREET_NAMES.intersection(words_in_message) and CURSE_WORDS.intersection(words_in_message):
                 triggered = True
@@ -102,67 +99,63 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         logger.info(f"Curse word detected from user: {user.first_name} ({user.id})")
         await update.message.reply_text("Эй, не матерись")
 
-# --- NEW WEBHOOK STARTUP LOGIC ---
-async def main() -> None:
-    """Initializes the bot and sets up the webhook server."""
-    TOKEN = os.getenv("TELEGRAM_TOKEN")
-    if not TOKEN:
-        logger.error("TELEGRAM_TOKEN environment variable not set!")
-        return
+# --- REFACTORED WEBHOOK STARTUP LOGIC (No changes) ---
 
-    # Render provides the public URL for the service.
-    WEBHOOK_URL = os.getenv("RENDER_EXTERNAL_URL")
-    if not WEBHOOK_URL:
-        logger.error("RENDER_EXTERNAL_URL environment variable not found. Cannot set webhook.")
-        return
+TOKEN = os.getenv("TELEGRAM_TOKEN")
+WEBHOOK_URL = os.getenv("RENDER_EXTERNAL_URL")
+SECRET_PATH = f"/{TOKEN}"
 
-    # A secret path to receive updates from Telegram, for security.
-    SECRET_PATH = f"/{TOKEN}"
+# Build the application object once. It will be used by the lifespan manager and webhook endpoint.
+application = Application.builder().token(TOKEN).build()
 
-    # Build the application. No proxy is needed on Render.
-    application = Application.builder().token(TOKEN).build()
-
-    # Register all your handlers
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Handles the bot's setup and shutdown procedures."""
+    # On startup:
+    await application.initialize()
+    await application.start() # Start the background tasks for processing updates
+    
+    logger.info("Setting up bot handlers and webhook...")
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
-    # Tell Telegram where to send updates by setting the webhook.
     await application.bot.set_webhook(url=f"{WEBHOOK_URL}{SECRET_PATH}")
+    logger.info("Webhook has been set!")
+    
+    yield  # The application runs while the server is alive.
+    
+    # On shutdown:
+    logger.info("Cleaning up, deleting webhook, and shutting down...")
+    await application.stop() # Stop the background tasks
+    await application.shutdown()
+    await application.bot.delete_webhook()
+    logger.info("Webhook has been deleted and application shut down.")
 
-    # This is the FastAPI app that will handle incoming HTTP requests from Telegram.
-    fastapi_app = FastAPI()
+# Create the FastAPI app with our new lifespan manager.
+fastapi_app = FastAPI(lifespan=lifespan)
 
-    @fastapi_app.post(SECRET_PATH)
-    async def telegram_webhook(update: dict) -> Response:
-        """This endpoint receives the updates from Telegram."""
+@fastapi_app.post(SECRET_PATH)
+async def telegram_webhook(update: dict) -> Response:
+    """This endpoint receives the updates from Telegram."""
+    try:
         await application.process_update(Update.de_json(data=update, bot=application.bot))
         return Response(status_code=200)
+    except Exception as e:
+        logger.error(f"Error processing update: {e}")
+        return Response(status_code=500)
 
-    @fastapi_app.get("/health")
-    async def health_check() -> Response:
-        """A simple endpoint for Render's health checks to ensure the app is live."""
-        return Response(status_code=200, content="OK")
-
-    # Start the web server that will listen for incoming webhook requests.
-    PORT = int(os.getenv("PORT", 8000))
-    import uvicorn
-    web_server = uvicorn.Server(
-        config=uvicorn.Config(
-            app=fastapi_app,
-            port=PORT,
-            host="0.0.0.0",
-        )
-    )
-
-    # Run the bot application and the web server concurrently.
-    async with application:
-        await application.start()
-        await web_server.serve()
-        await application.stop()
+@fastapi_app.get("/health")
+async def health_check() -> Response:
+    """A simple endpoint for Render's health checks."""
+    return Response(status_code=200, content="OK")
 
 if __name__ == "__main__":
-    # Use asyncio.run() to start the asynchronous main function.
-    try:
-        asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
-        logger.info("Bot shutting down...")
+    # This block allows you to run the bot by executing `python bot.py`.
+    # It will be used by Render's start command.
+    import uvicorn
+    PORT = int(os.getenv("PORT", 8000))
+    
+    # Check if required environment variables are set before trying to run.
+    if not TOKEN or not WEBHOOK_URL:
+        logger.error("FATAL: TELEGRAM_TOKEN and RENDER_EXTERNAL_URL must be set.")
+    else:
+        uvicorn.run(fastapi_app, host="0.0.0.0", port=PORT)
