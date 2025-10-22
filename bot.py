@@ -13,7 +13,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 # --- WORD LISTS (Updated) ---
 CURSE_WORDS = {
     "fuck", "shit", "bitch", "cunt", "asshole", "damn", "motherfucker", "dick",
-    "блять", "сука", "хуй", "пизда", "ебать", "ебал", "заебал", "мудак", "пидорас", "гандон", "нахуй", "хуйня", "сучка"
+    "блять", "сука", "хуй", "пизда", "ебать", "ебал", "заебал", "мудак", "пидорас", "гандон", "нахуй", "хуйня", "сучка", "отъебись"
 }
 GREET_NAMES = {"daniil", "dan", "даниил", "даня", "денчик", "denchik", "den4ik"}
 DANIIL_CURSE_RESPONSES = [
